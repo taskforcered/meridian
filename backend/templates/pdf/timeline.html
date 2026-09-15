@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Medical Chronology — {{ case.claimant_name }}</title>
+  <style>
+    @page {
+      margin: 2cm 2.5cm;
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 8pt;
+        color: #999;
+      }
+    }
+
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 10.5pt;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+
+    h1 {
+      font-size: 16pt;
+      font-weight: bold;
+      margin: 0 0 4pt 0;
+      color: #1a1a1a;
+    }
+
+    .case-meta {
+      font-size: 9pt;
+      color: #555;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 10pt;
+      margin-bottom: 20pt;
+    }
+
+    .case-meta span {
+      margin-right: 16pt;
+    }
+
+    .timeline-line {
+      border-left: 2px solid #b91c1c;
+      padding-left: 14pt;
+      margin-left: 8pt;
+    }
+
+    .event {
+      margin-bottom: 18pt;
+      page-break-inside: avoid;
+    }
+
+    .event-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10pt;
+      margin-bottom: 3pt;
+    }
+
+    .event-date {
+      font-size: 9.5pt;
+      font-weight: bold;
+      color: #b91c1c;
+      white-space: nowrap;
+      font-family: "Courier New", monospace;
+    }
+
+    .event-provider {
+      font-size: 9.5pt;
+      color: #444;
+      font-style: italic;
+    }
+
+    .event-description {
+      font-size: 10.5pt;
+      margin: 0 0 4pt 0;
+    }
+
+    .citation {
+      border-left: 3px solid #ccc;
+      padding: 3pt 8pt;
+      margin: 4pt 0;
+      font-size: 9pt;
+      color: #555;
+      font-style: italic;
+    }
+
+    .citation .page-ref {
+      font-style: normal;
+      color: #888;
+      font-size: 8pt;
+    }
+
+    .flags {
+      margin-top: 5pt;
+    }
+
+    .flag {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-family: Arial, sans-serif;
+      border-radius: 3pt;
+      padding: 1.5pt 6pt;
+      margin-right: 4pt;
+      border: 0.5pt solid transparent;
+    }
+
+    .flag-causation_relevant    { background: #dbeafe; border-color: #93c5fd; color: #1e3a8a; }
+    .flag-pre_existing_condition { background: #fef9c3; border-color: #fcd34d; color: #78350f; }
+    .flag-record_conflict       { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
+    .flag-treatment_gap         { background: #f3e8ff; border-color: #d8b4fe; color: #4c1d95; }
+
+    .footer-note {
+      margin-top: 30pt;
+      padding-top: 8pt;
+      border-top: 1px solid #ddd;
+      font-size: 8pt;
+      color: #999;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Medical Chronology</h1>
+  <div class="case-meta">
+    <span><strong>Claimant:</strong> {{ case.claimant_name }}</span>
+    <span><strong>Firm:</strong> {{ case.firm|default:"—" }}</span>
+    <span><strong>Status:</strong> {{ case.get_status_display }}</span>
+    <span><strong>Generated:</strong> {% now "N j, Y" %}</span>
+  </div>
+
+  <div class="timeline-line">
+    {% for event in events %}
+    <div class="event">
+      <div class="event-header">
+        <span class="event-date">{{ event.event_date }}</span>
+        {% if event.provider_name %}
+        <span class="event-provider">{{ event.provider_name }}</span>
+        {% endif %}
+      </div>
+
+      <p class="event-description">{{ event.description }}</p>
+
+      {% if event.citation_text %}
+      <blockquote class="citation">
+        {{ event.citation_text }}
+        {% if event.source_page %}
+        <span class="page-ref">&nbsp;[p.&nbsp;{{ event.source_page }}]</span>
+        {% endif %}
+      </blockquote>
+      {% endif %}
+
+      {% with event.get_flag_items as flag_items %}
+      {% if flag_items %}
+      <div class="flags">
+        {% for item in flag_items %}
+        <span class="flag flag-{{ item.key }}">{{ item.label }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+    </div>
+    {% empty %}
+    <p style="color:#888; font-style:italic;">No timeline events recorded for this case.</p>
+    {% endfor %}
+  </div>
+
+  <div class="footer-note">
+    Meridian — Confidential Work Product &nbsp;|&nbsp;
+    For attorney/paralegal review only — not for distribution.
+  </div>
+</body>
+</html>
