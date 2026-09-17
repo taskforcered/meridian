@@ -84,6 +84,80 @@ class MockLLMService:
         ])
 
 
+class AnthropicLLMService:
+    """
+    Real LLM extraction via the Anthropic API directly (no AWS/Bedrock account
+    needed) — just ANTHROPIC_API_KEY. Uses output_config structured outputs so
+    the response is guaranteed to match EVENTS_SCHEMA, no prose-JSON parsing.
+    """
+
+    SYSTEM_PROMPT = (
+        'You are a medical record analyst supporting personal-injury litigation. '
+        'Given OCR-extracted text from medical records, identify chronological medical '
+        'events relevant to the case. For each event, cite the verbatim passage the '
+        'event is drawn from and flag it against the given categories where applicable. '
+        'If no events are found, return an empty events array.'
+    )
+
+    def __init__(self, api_key: str, model: str) -> None:
+        self.api_key = api_key
+        self.model = model
+
+    def _schema(self) -> dict:
+        from cases.models import FLAG_LABELS
+
+        return {
+            'type': 'object',
+            'properties': {
+                'events': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'event_date': {'type': 'string', 'format': 'date'},
+                            'provider_name': {'type': 'string'},
+                            'description': {'type': 'string'},
+                            'source_page': {'type': ['integer', 'null']},
+                            'citation_text': {'type': 'string'},
+                            'flags': {
+                                'type': 'array',
+                                'items': {'type': 'string', 'enum': list(FLAG_LABELS)},
+                            },
+                        },
+                        'required': [
+                            'event_date', 'provider_name', 'description',
+                            'source_page', 'citation_text', 'flags',
+                        ],
+                        'additionalProperties': False,
+                    },
+                },
+            },
+            'required': ['events'],
+            'additionalProperties': False,
+        }
+
+    def extract_timeline_events(self, pages: list[PageResult]) -> LLMExtractionResult:
+        import json
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=self.api_key)
+        combined = '\n\n'.join(f'[Page {p.page_number}]\n{p.text}' for p in pages)
+
+        response = client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            output_config={
+                'effort': 'low',
+                'format': {'type': 'json_schema', 'schema': self._schema()},
+            },
+            system=self.SYSTEM_PROMPT,
+            messages=[{'role': 'user', 'content': combined}],
+        )
+        text = next(b.text for b in response.content if b.type == 'text')
+        data = json.loads(text)
+        return LLMExtractionResult(events=data['events'])
+
+
 class BedrockClaudeService:
     """
     Production LLM extraction using Anthropic Claude via AWS Bedrock.
@@ -143,5 +217,10 @@ def get_llm_service() -> LLMService:
         return BedrockClaudeService(
             model_id=settings.BEDROCK_MODEL_ID,
             region=getattr(settings, 'AWS_REGION_NAME', 'us-east-1'),
+        )
+    if getattr(settings, 'USE_ANTHROPIC_LLM', False):
+        return AnthropicLLMService(
+            api_key=settings.ANTHROPIC_API_KEY,
+            model=getattr(settings, 'ANTHROPIC_MODEL', 'claude-opus-5'),
         )
     return MockLLMService()

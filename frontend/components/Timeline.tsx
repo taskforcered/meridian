@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import type { FlagType, TimelineEvent } from '@/lib/types';
 
 const FLAG_META: Record<FlagType, { label: string; color: string }> = {
@@ -28,12 +31,39 @@ function FlagBadge({ flag }: { flag: FlagType }) {
   );
 }
 
-function EventCard({ event }: { event: TimelineEvent }) {
+interface EventCardProps {
+  event: TimelineEvent;
+  onUpdate: (id: number, patch: Partial<TimelineEvent>) => void;
+}
+
+function EventCard({ event, onUpdate }: EventCardProps) {
+  const [note, setNote] = useState(event.reviewer_note);
+  const [saving, setSaving] = useState(false);
+
+  async function handleVerifyToggle() {
+    setSaving(true);
+    try {
+      await onUpdate(event.id, { verified: !event.verified });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleNoteSave() {
+    if (note === event.reviewer_note) return;
+    setSaving(true);
+    try {
+      await onUpdate(event.id, { reviewer_note: note });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="flex gap-4 group">
       {/* Timeline spine */}
       <div className="flex flex-col items-center flex-shrink-0 w-4">
-        <div className="w-3 h-3 rounded-full bg-red-600 mt-1 ring-2 ring-white ring-offset-1" />
+        <div className={`w-3 h-3 rounded-full mt-1 ring-2 ring-white ring-offset-1 ${event.verified ? 'bg-green-500' : 'bg-red-600'}`} />
         <div className="w-px flex-1 bg-gray-200 mt-1 group-last:hidden" />
       </div>
 
@@ -45,6 +75,11 @@ function EventCard({ event }: { event: TimelineEvent }) {
           </time>
           {event.provider_name && (
             <span className="text-sm text-gray-500 italic truncate">{event.provider_name}</span>
+          )}
+          {event.verified && (
+            <span className="text-xs text-green-700 font-medium bg-green-50 px-2 py-0.5 rounded-full">
+              Verified
+            </span>
           )}
         </div>
 
@@ -60,12 +95,68 @@ function EventCard({ event }: { event: TimelineEvent }) {
         )}
 
         {event.flags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-3">
             {event.flags.map((f) => (
               <FlagBadge key={f} flag={f} />
             ))}
           </div>
         )}
+
+        {event.source_documents_detail.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mb-3 text-xs text-gray-500">
+            <span>{event.source_documents_detail.length > 1 ? 'Sources:' : 'Source:'}</span>
+            {event.source_documents_detail.map((doc, i) => (
+              <span key={doc.id}>
+                {doc.file ? (
+                  <a
+                    href={doc.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {doc.filename}
+                  </a>
+                ) : (
+                  doc.filename
+                )}
+                {i < event.source_documents_detail.length - 1 && ','}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Review controls */}
+        <div className="mt-2 space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={event.verified}
+              onChange={handleVerifyToggle}
+              disabled={saving}
+              className="w-4 h-4 accent-green-600"
+            />
+            <span className="text-xs text-gray-600 font-medium">Mark verified</span>
+          </label>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onBlur={handleNoteSave}
+              placeholder="Reviewer note…"
+              className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50"
+            />
+            {note !== event.reviewer_note && (
+              <button
+                onClick={handleNoteSave}
+                disabled={saving}
+                className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+              >
+                Save
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -73,9 +164,10 @@ function EventCard({ event }: { event: TimelineEvent }) {
 
 interface TimelineProps {
   events: TimelineEvent[];
+  onUpdate: (id: number, patch: Partial<TimelineEvent>) => void;
 }
 
-export default function Timeline({ events }: TimelineProps) {
+export default function Timeline({ events, onUpdate }: TimelineProps) {
   if (events.length === 0) {
     return (
       <div className="text-center py-16 text-sm text-gray-400">
@@ -87,7 +179,7 @@ export default function Timeline({ events }: TimelineProps) {
   return (
     <div className="relative">
       {events.map((event) => (
-        <EventCard key={event.id} event={event} />
+        <EventCard key={event.id} event={event} onUpdate={onUpdate} />
       ))}
     </div>
   );

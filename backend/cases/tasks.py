@@ -40,7 +40,6 @@ def extract_document(self, source_document_id: int) -> dict:
         for event_data in llm_result.events:
             event = TimelineEvent.objects.create(
                 case=doc.case,
-                source_document=doc,
                 event_date=event_data['event_date'],
                 provider_name=event_data.get('provider_name', ''),
                 description=event_data.get('description', ''),
@@ -48,6 +47,7 @@ def extract_document(self, source_document_id: int) -> dict:
                 citation_text=event_data.get('citation_text', ''),
                 flags=event_data.get('flags', []),
             )
+            event.source_documents.add(doc)
             created_ids.append(event.pk)
 
         doc.extraction_status = SourceDocument.EXTRACTION_COMPLETE

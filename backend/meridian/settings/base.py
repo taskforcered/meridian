@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     'simple_history',
     'cases',
@@ -85,7 +86,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Bulk upload sends files in client-side batches well under this, but keep
+# headroom above Django's default of 100 for an unusually large single batch.
+DATA_UPLOAD_MAX_NUMBER_FILES = 300
 
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
@@ -99,6 +113,14 @@ CORS_ALLOWED_ORIGINS = env.list(
     default=['http://localhost:3000'],
 )
 
-# Feature flags — both default to False so the project runs without AWS credentials
+# Feature flags — all default to False so the project runs with zero external
+# credentials out of the box. USE_REAL_OCR/USE_REAL_LLM are the AWS Textract/
+# Bedrock path (unwired). USE_LOCAL_OCR/USE_ANTHROPIC_LLM are checked first
+# and need no cloud account: Tesseract runs inside this container, and the
+# Anthropic API just needs ANTHROPIC_API_KEY.
 USE_REAL_OCR = env.bool('USE_REAL_OCR', default=False)
 USE_REAL_LLM = env.bool('USE_REAL_LLM', default=False)
+USE_LOCAL_OCR = env.bool('USE_LOCAL_OCR', default=False)
+USE_ANTHROPIC_LLM = env.bool('USE_ANTHROPIC_LLM', default=False)
+ANTHROPIC_API_KEY = env('ANTHROPIC_API_KEY', default='')
+ANTHROPIC_MODEL = env('ANTHROPIC_MODEL', default='claude-opus-5')

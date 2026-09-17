@@ -1,5 +1,23 @@
+from django.contrib.auth.models import User
 from django.db import models
 from simple_history.models import HistoricalRecords
+
+
+class Profile(models.Model):
+    ROLE_PARALEGAL = 'paralegal'
+    ROLE_ATTORNEY = 'attorney'
+    ROLE_ADMIN = 'admin'
+    ROLE_CHOICES = [
+        (ROLE_PARALEGAL, 'Paralegal'),
+        (ROLE_ATTORNEY, 'Attorney'),
+        (ROLE_ADMIN, 'Admin'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_PARALEGAL)
+
+    def __str__(self):
+        return f'{self.user.username} ({self.role})'
 
 
 class Case(models.Model):
@@ -19,6 +37,10 @@ class Case(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_INTAKE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_cases'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
@@ -42,6 +64,8 @@ class SourceDocument(models.Model):
 
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='documents')
     filename = models.CharField(max_length=255)
+    # storage_ref is kept as the OCR-service-facing pointer; auto-set from file.name on save
+    file = models.FileField(upload_to='documents/%Y/%m/', blank=True)
     storage_ref = models.CharField(max_length=1024, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     extraction_status = models.CharField(
@@ -52,6 +76,13 @@ class SourceDocument(models.Model):
 
     class Meta:
         ordering = ['-uploaded_at']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # file.name is the full relative path only after super().save() runs FileField.pre_save
+        if self.file and not self.storage_ref:
+            type(self).objects.filter(pk=self.pk).update(storage_ref=self.file.name)
+            self.storage_ref = self.file.name
 
     def __str__(self):
         return f'{self.filename} ({self.case})'
@@ -74,10 +105,10 @@ class TimelineEvent(models.Model):
     FLAG_CHOICES = list(FLAG_LABELS.items())
 
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='events')
-    source_document = models.ForeignKey(
+    # M2M, not FK: the same event can legitimately turn up in more than one
+    # record (e.g. an ER note and a later specialist follow-up both mention it).
+    source_documents = models.ManyToManyField(
         SourceDocument,
-        on_delete=models.SET_NULL,
-        null=True,
         blank=True,
         related_name='events',
     )
@@ -88,6 +119,8 @@ class TimelineEvent(models.Model):
     citation_text = models.TextField(blank=True)
     # Stored as a JSON array of flag-type strings, e.g. ["causation_relevant", "record_conflict"]
     flags = models.JSONField(default=list, blank=True)
+    verified = models.BooleanField(default=False)
+    reviewer_note = models.TextField(blank=True)
     history = HistoricalRecords()
 
     class Meta:

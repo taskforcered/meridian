@@ -1,6 +1,11 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import Case, SourceDocument, TimelineEvent
+from .models import Case, Profile, SourceDocument, TimelineEvent
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role')
 
 
 @admin.register(Case)

@@ -9,8 +9,12 @@ Call get_ocr_service() to obtain the correct implementation at runtime.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -63,6 +67,66 @@ class MockOCRService:
         ])
 
 
+class LocalOCRService:
+    """
+    Real OCR with no cloud account: pdfplumber pulls the embedded text layer
+    per page, falling back to Tesseract (via pdf2image rasterizing that page)
+    only for pages with no text layer, e.g. scanned/faxed records. Non-PDF
+    uploads (used in early testing) are read as plain text.
+    """
+
+    IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
+    TEXT_SUFFIXES = {'.txt'}
+
+    def extract(self, storage_ref: str) -> OCRResult:
+        from django.conf import settings
+
+        path = Path(settings.MEDIA_ROOT) / storage_ref
+        if not path.exists():
+            raise FileNotFoundError(f'No such document on disk: {path}')
+
+        suffix = path.suffix.lower()
+
+        if suffix in self.IMAGE_SUFFIXES:
+            import pytesseract
+            from PIL import Image
+
+            return OCRResult(pages=[
+                PageResult(page_number=1, text=pytesseract.image_to_string(Image.open(path))),
+            ])
+
+        if suffix in self.TEXT_SUFFIXES:
+            return OCRResult(pages=[
+                PageResult(page_number=1, text=path.read_text(errors='ignore')),
+            ])
+
+        if suffix != '.pdf':
+            # Unknown format — best effort as plain text rather than failing the upload outright.
+            return OCRResult(pages=[
+                PageResult(page_number=1, text=path.read_text(errors='ignore')),
+            ])
+
+        import pdfplumber
+
+        pages: list[PageResult] = []
+        with pdfplumber.open(path) as pdf:
+            for i, page in enumerate(pdf.pages, start=1):
+                text = (page.extract_text() or '').strip()
+                if not text:
+                    text = self._ocr_page(path, i)
+                pages.append(PageResult(page_number=i, text=text))
+        return OCRResult(pages=pages)
+
+    def _ocr_page(self, path: Path, page_number: int) -> str:
+        import pytesseract
+        from pdf2image import convert_from_path
+
+        images = convert_from_path(str(path), first_page=page_number, last_page=page_number)
+        if not images:
+            return ''
+        return pytesseract.image_to_string(images[0])
+
+
 class TextractOCRService:
     """
     Production OCR using AWS Textract.
@@ -111,4 +175,6 @@ def get_ocr_service() -> OCRService:
             s3_bucket=settings.AWS_S3_BUCKET,
             region=getattr(settings, 'AWS_REGION_NAME', 'us-east-1'),
         )
+    if getattr(settings, 'USE_LOCAL_OCR', False):
+        return LocalOCRService()
     return MockOCRService()

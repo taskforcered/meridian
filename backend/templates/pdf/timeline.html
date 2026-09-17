@@ -150,6 +150,12 @@
       </blockquote>
       {% endif %}
 
+      {% with event.source_documents.all as sources %}
+      {% if sources %}
+      <p class="page-ref">Source: {% for doc in sources %}{{ doc.filename }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+      {% endwith %}
+
       {% with event.get_flag_items as flag_items %}
       {% if flag_items %}
       <div class="flags">

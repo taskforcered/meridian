@@ -4,15 +4,15 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
-export default function RootPage() {
+export default function CasesLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      router.replace(user ? '/cases' : '/login');
-    }
+    if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
 
-  return null;
+  if (loading || !user) return null;
+
+  return <>{children}</>;
 }
