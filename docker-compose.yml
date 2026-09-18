@@ -29,6 +29,22 @@ services:
       timeout: 3s
       retries: 5
 
+  migrate:
+    build: ./backend
+    container_name: meridian-migrate
+    environment:
+      DATABASE_URL: postgres://meridian:meridian@postgres:5432/meridian
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["true"]
+
   backend:
     build: ./backend
     container_name: meridian-backend
@@ -47,6 +63,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   celery-worker:
     build: ./backend
@@ -65,6 +83,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
