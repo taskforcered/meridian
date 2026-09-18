@@ -11,10 +11,10 @@ const STATUS_LABEL: Record<CaseStatus, string> = {
 };
 
 const STATUS_COLOR: Record<CaseStatus, string> = {
-  intake: 'bg-gray-100 text-gray-700',
-  processing: 'bg-blue-100 text-blue-700',
-  review: 'bg-yellow-100 text-yellow-700',
-  complete: 'bg-green-100 text-green-700',
+  intake: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  processing: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  review: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+  complete: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
 };
 
 function reviewProgress(c: Case): string {
@@ -31,7 +31,7 @@ interface Props {
 export default function CaseList({ cases }: Props) {
   if (cases.length === 0) {
     return (
-      <div className="text-center py-16 text-sm text-gray-400">
+      <div className="text-center py-16 text-sm text-gray-400 dark:text-gray-500">
         No cases yet. Create one to get started.
       </div>
     );
@@ -41,7 +41,7 @@ export default function CaseList({ cases }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
             <th className="py-3 pr-4">Claimant</th>
             <th className="py-3 pr-4">Firm</th>
             <th className="py-3 pr-4">Status</th>
@@ -52,21 +52,21 @@ export default function CaseList({ cases }: Props) {
         </thead>
         <tbody>
           {cases.map((c) => (
-            <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+            <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:hover:bg-gray-900">
               <td className="py-3 pr-4">
-                <Link href={`/cases/${c.id}`} className="font-medium text-blue-600 hover:underline">
+                <Link href={`/cases/${c.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                   {c.claimant_name}
                 </Link>
               </td>
-              <td className="py-3 pr-4 text-gray-600">{c.firm || '—'}</td>
+              <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">{c.firm || '—'}</td>
               <td className="py-3 pr-4">
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[c.status]}`}>
                   {STATUS_LABEL[c.status]}
                 </span>
               </td>
-              <td className="py-3 pr-4 text-gray-600">{c.document_count ?? 0}</td>
-              <td className="py-3 pr-4 text-gray-600">{reviewProgress(c)}</td>
-              <td className="py-3 text-gray-500 whitespace-nowrap">
+              <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">{c.document_count ?? 0}</td>
+              <td className="py-3 pr-4 text-gray-600 dark:text-gray-400">{reviewProgress(c)}</td>
+              <td className="py-3 text-gray-500 whitespace-nowrap dark:text-gray-500">
                 {new Date(c.created_at).toLocaleDateString()}
               </td>
             </tr>

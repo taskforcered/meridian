@@ -34,6 +34,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'cases.middleware.TenantMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
@@ -112,6 +113,22 @@ CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
     default=['http://localhost:3000', 'http://localhost:8000', 'http://localhost:8095'],
 )
+# For subdomain-per-tenant (acme.meridianapp.com), the exact-match list above
+# can't cover every tenant — add a regex, e.g. ^https://[\w-]+\.meridianapp\.com$
+CORS_ALLOWED_ORIGIN_REGEXES = env.list('CORS_ALLOWED_ORIGIN_REGEXES', default=[])
+# django-cors-headers only allows a fixed default header set through preflight
+# — X-Tenant-Slug (lib/api.ts, every tenant-scoped request) isn't in it, so
+# without this every one of those requests fails CORS preflight in a real
+# browser, which the frontend's own catch-and-clear-token logic then turns
+# into what looks like an inexplicable logout. Caught by actually running it.
+from corsheaders.defaults import default_headers as _cors_default_headers  # noqa: E402
+CORS_ALLOW_HEADERS = list(_cors_default_headers) + ['x-tenant-slug']
+
+# Root domain TenantMiddleware strips off the Host header to find the tenant
+# subdomain (acme.<this> -> slug 'acme'). Empty disables Host-based tenant
+# resolution — the X-Tenant-Slug header override still works, which is enough
+# for local dev (see settings/local.py).
+MERIDIAN_ROOT_DOMAIN = env('MERIDIAN_ROOT_DOMAIN', default='')
 
 # Feature flags — all default to False so the project runs with zero external
 # credentials out of the box. USE_REAL_OCR/USE_REAL_LLM are the AWS Textract/

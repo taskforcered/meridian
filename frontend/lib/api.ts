@@ -1,4 +1,5 @@
-import type { AuthUser, Case, SourceDocument, TimelineEvent } from './types';
+import { getStoredTenantSlug } from './tenant';
+import type { AuthUser, Case, Member, Organization, SourceDocument, TimelineEvent } from './types';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api';
@@ -19,9 +20,13 @@ interface PaginatedResponse<T> {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
+  const tenantSlug = getStoredTenantSlug();
   const isFormData = init?.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Token ${token}` } : {}),
+    // Set when a platform admin has "entered" a tenant (see lib/tenant.tsx) —
+    // a routing hint only; the backend never trusts it for authorization.
+    ...(tenantSlug ? { 'X-Tenant-Slug': tenantSlug } : {}),
     // Omit Content-Type for FormData so the browser sets multipart boundary
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(init?.headers as Record<string, string> | undefined),
@@ -37,13 +42,18 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   auth: {
-    login: (username: string, password: string) =>
+    login: (email: string, password: string) =>
       apiFetch<{ token: string; user: AuthUser }>('/auth/login/', {
         method: 'POST',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       }),
     logout: () => apiFetch<void>('/auth/logout/', { method: 'POST' }),
     me: () => apiFetch<AuthUser>('/auth/me/'),
+    setDefaultOrganization: (slug: string) =>
+      apiFetch<AuthUser>('/auth/me/', {
+        method: 'PATCH',
+        body: JSON.stringify({ default_organization_slug: slug }),
+      }),
   },
 
   cases: {
@@ -96,5 +106,23 @@ export const api = {
     get: (id: number) => apiFetch<TimelineEvent>(`/events/${id}/`),
     update: (id: number, data: Partial<TimelineEvent>) =>
       apiFetch<TimelineEvent>(`/events/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+
+  // Global Admin only — the platform-wide tenant registry.
+  organizations: {
+    list: () => apiFetch<PaginatedResponse<Organization>>('/admin/organizations/'),
+    create: (data: { name: string; slug: string }) =>
+      apiFetch<Organization>('/admin/organizations/', { method: 'POST', body: JSON.stringify(data) }),
+  },
+
+  // Org Admin (own org) or a Global Admin who has entered a tenant.
+  members: {
+    list: () => apiFetch<PaginatedResponse<Member>>('/members/'),
+    create: (data: { email: string; password?: string; role: string }) =>
+      apiFetch<Member>('/members/', { method: 'POST', body: JSON.stringify(data) }),
+    updateRole: (id: number, role: string) =>
+      apiFetch<Member>(`/members/${id}/`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+    deactivate: (id: number) => apiFetch<Member>(`/members/${id}/deactivate/`, { method: 'POST' }),
+    reactivate: (id: number) => apiFetch<Member>(`/members/${id}/reactivate/`, { method: 'POST' }),
   },
 };

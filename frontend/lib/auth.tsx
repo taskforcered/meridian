@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { clearStoredTenantSlug, getStoredTenantSlug } from './tenant';
 import type { AuthUser } from './types';
 
 const TOKEN_KEY = 'meridian_token';
@@ -29,7 +30,10 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  // Returns the authenticated user (with `memberships`) so the caller can
+  // decide where to route them — that decision isn't made here since it
+  // depends on how many orgs they belong to. See app/login/page.tsx.
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -46,25 +50,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+    const tenantSlug = getStoredTenantSlug();
     fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api'}/auth/me/`, {
-      headers: { Authorization: `Token ${stored}` },
+      headers: {
+        Authorization: `Token ${stored}`,
+        ...(tenantSlug ? { 'X-Tenant-Slug': tenantSlug } : {}),
+      },
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((r) => {
+        // Only a real auth rejection means the token is actually invalid.
+        // A network error, CORS failure, or 5xx is transient — clearing the
+        // token for those would silently log someone out for no reason.
+        if (r.ok) return r.json();
+        if (r.status === 401) clearToken();
+        return Promise.reject();
+      })
       .then((u: AuthUser) => {
         setToken(stored);
         setUser(u);
       })
-      .catch(() => clearToken())
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api'}/auth/login/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       },
     );
     if (!res.ok) {
@@ -75,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeToken(data.token);
     setToken(data.token);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const logout = useCallback(async () => {
@@ -86,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ).catch(() => {});
     }
     clearToken();
+    clearStoredTenantSlug();
     setToken(null);
     setUser(null);
   }, []);

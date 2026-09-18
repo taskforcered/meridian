@@ -1,5 +1,62 @@
+from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Case, SourceDocument, TimelineEvent
+from .models import Case, Organization, Profile, SourceDocument, TimelineEvent
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ('id', 'name', 'slug', 'is_active', 'created_at')
+        read_only_fields = ('created_at',)
+
+
+class MemberSerializer(serializers.ModelSerializer):
+    """Manages a Profile — a (user, organization) membership. 'organization'
+    is never client-supplied — MembershipViewSet injects it from
+    request.tenant via serializer context, same pattern as Case.organization.
+
+    Email doubles as the login identity (stored in User.username, which is
+    already globally unique) and is NOT unique across Profiles — the same
+    person can be invited into more than one organization, which just adds
+    a second Profile row for their existing User account.
+    """
+
+    email = serializers.EmailField(source='user.username')
+    password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+
+    class Meta:
+        model = Profile
+        fields = ('id', 'email', 'role', 'is_active', 'is_default', 'password')
+        read_only_fields = ('is_default',)
+
+    def create(self, validated_data):
+        email = validated_data['user']['username'].strip().lower()
+        password = validated_data.pop('password', None)
+        role = validated_data.get('role', Profile.ROLE_PARALEGAL)
+        organization = self.context['organization']
+
+        user, user_created = User.objects.get_or_create(
+            username=email, defaults={'email': email},
+        )
+        if user_created:
+            if not password:
+                raise serializers.ValidationError({'password': 'Required for a new person.'})
+            user.set_password(password)
+            user.save()
+
+        if Profile.objects.filter(user=user, organization=organization).exists():
+            raise serializers.ValidationError({'email': 'Already a member of this organization.'})
+
+        # First membership anywhere on the platform becomes their default.
+        is_default = not Profile.objects.filter(user=user).exists()
+        return Profile.objects.create(
+            user=user, organization=organization, role=role, is_default=is_default,
+        )
+
+    def update(self, instance, validated_data):
+        instance.role = validated_data.get('role', instance.role)
+        instance.save()
+        return instance
 
 
 class SourceDocumentSerializer(serializers.ModelSerializer):
@@ -33,6 +90,7 @@ class CaseSerializer(serializers.ModelSerializer):
     documents = SourceDocumentSerializer(many=True, read_only=True)
     events = TimelineEventSerializer(many=True, read_only=True)
     reviewed_by = serializers.StringRelatedField(read_only=True)
+    organization = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Case

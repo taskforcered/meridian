@@ -33,10 +33,10 @@ export default function CasesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">Cases</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">Cases</h2>
         <Link
           href="/cases/new"
-          className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-blue-700 transition-colors dark:hover:bg-blue-500"
         >
           New Case
         </Link>
@@ -54,7 +54,7 @@ export default function CasesPage() {
                 'px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50',
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-800',
               ].join(' ')}
             >
               {opt.label}
@@ -64,12 +64,12 @@ export default function CasesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded mb-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded mb-4 dark:bg-red-950/50 dark:border-red-900 dark:text-red-300">
           {error}
         </div>
       )}
       {loading ? (
-        <div className="text-sm text-gray-400 py-8 text-center">Loading…</div>
+        <div className="text-sm text-gray-400 py-8 text-center dark:text-gray-500">Loading…</div>
       ) : (
         <CaseList cases={filtered} />
       )}

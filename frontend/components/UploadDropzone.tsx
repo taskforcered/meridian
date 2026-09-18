@@ -110,7 +110,9 @@ export default function UploadDropzone({ caseId, onUploaded }: Props) {
         }}
         className={[
           'border-2 border-dashed rounded-lg px-6 py-8 text-center transition-colors',
-          dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 bg-white',
+          dragging
+            ? 'border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-950/40'
+            : 'border-gray-300 hover:border-gray-400 bg-white dark:border-gray-700 dark:hover:border-gray-600 dark:bg-gray-900',
         ].join(' ')}
       >
         <input
@@ -133,10 +135,10 @@ export default function UploadDropzone({ caseId, onUploaded }: Props) {
 
         {uploading ? (
           <div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Uploading {done}/{total}…
             </p>
-            <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden max-w-xs mx-auto">
+            <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden max-w-xs mx-auto dark:bg-gray-800">
               <div
                 className="h-full bg-blue-500 transition-all"
                 style={{ width: `${total ? (done / total) * 100 : 0}%` }}
@@ -145,24 +147,24 @@ export default function UploadDropzone({ caseId, onUploaded }: Props) {
           </div>
         ) : (
           <>
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Drop files or a folder here
             </p>
-            <p className="text-xs text-gray-400 mt-1 mb-3">
+            <p className="text-xs text-gray-400 mt-1 mb-3 dark:text-gray-500">
               PDFs, images, or .zip archives of records — any number of files
             </p>
             <div className="flex gap-2 justify-center">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs font-medium text-blue-600 border border-blue-200 rounded px-3 py-1.5 hover:bg-blue-50"
+                className="text-xs font-medium text-blue-600 border border-blue-200 rounded px-3 py-1.5 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-900 dark:hover:bg-blue-950/50"
               >
                 Select files
               </button>
               <button
                 type="button"
                 onClick={() => folderInputRef.current?.click()}
-                className="text-xs font-medium text-blue-600 border border-blue-200 rounded px-3 py-1.5 hover:bg-blue-50"
+                className="text-xs font-medium text-blue-600 border border-blue-200 rounded px-3 py-1.5 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-900 dark:hover:bg-blue-950/50"
               >
                 Select folder
               </button>
@@ -171,7 +173,7 @@ export default function UploadDropzone({ caseId, onUploaded }: Props) {
         )}
       </div>
       {failed.length > 0 && (
-        <p className="text-xs text-red-600">
+        <p className="text-xs text-red-600 dark:text-red-400">
           Failed: {failed.join(', ')}
         </p>
       )}

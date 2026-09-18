@@ -3,7 +3,31 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 
+class Organization(models.Model):
+    """A tenant — one customer firm/insurer. The isolation boundary for all case data."""
+
+    name = models.CharField(max_length=255)
+    # Subdomain label (acme.meridianapp.com) used by TenantMiddleware to resolve
+    # the tenant for every request — see cases/middleware.py.
+    slug = models.SlugField(max_length=63, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Profile(models.Model):
+    """One row per (user, organization) membership — a person can belong to
+    more than one tenant (e.g. a consulting attorney who works two firms'
+    cases), each with their own role. Platform admins (is_superuser) have
+    zero Profile rows: they aren't a member of any tenant, that's the whole
+    point of "God Mode" — see IsPlatformAdmin.
+    """
+
     ROLE_PARALEGAL = 'paralegal'
     ROLE_ATTORNEY = 'attorney'
     ROLE_ADMIN = 'admin'
@@ -13,11 +37,25 @@ class Profile(models.Model):
         (ROLE_ADMIN, 'Admin'),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='memberships')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='profiles')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_PARALEGAL)
+    # Per-membership, not per-user: deactivating someone from one org must not
+    # lock them out of another org they also belong to.
+    is_active = models.BooleanField(default=True)
+    # Which membership this user lands in after login when they belong to
+    # more than one and haven't picked one for the session yet (see
+    # cases/auth_views.py). At most one True per user — enforced in code,
+    # not the DB, since partial unique constraints vary by DB backend.
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'organization'], name='unique_user_organization'),
+        ]
 
     def __str__(self):
-        return f'{self.user.username} ({self.role})'
+        return f'{self.user.username} ({self.role} @ {self.organization.name})'
 
 
 class Case(models.Model):
@@ -32,6 +70,9 @@ class Case(models.Model):
         (STATUS_COMPLETE, 'Complete'),
     ]
 
+    # The tenant boundary. PROTECT (not CASCADE): deleting an org's row must
+    # never silently take its clients' case data with it.
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name='cases')
     claimant_name = models.CharField(max_length=255)
     firm = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_INTAKE)

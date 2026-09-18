@@ -1,17 +1,27 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import Case, Profile, SourceDocument, TimelineEvent
+from .models import Case, Organization, Profile, SourceDocument, TimelineEvent
+
+
+@admin.register(Organization)
+class OrganizationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
 
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role')
+    list_display = ('user', 'organization', 'role', 'is_active', 'is_default')
+    list_filter = ('organization', 'role', 'is_active')
+    search_fields = ('user__username', 'user__email', 'organization__name')
 
 
 @admin.register(Case)
 class CaseAdmin(SimpleHistoryAdmin):
-    list_display = ('id', 'claimant_name', 'firm', 'status', 'created_at', 'updated_at')
-    list_filter = ('status',)
+    list_display = ('id', 'claimant_name', 'organization', 'firm', 'status', 'created_at', 'updated_at')
+    list_filter = ('organization', 'status')
     search_fields = ('claimant_name', 'firm')
     readonly_fields = ('created_at', 'updated_at')
 

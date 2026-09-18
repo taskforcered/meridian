@@ -16,17 +16,17 @@ const STATUS_LABEL: Record<CaseStatus, string> = {
 };
 
 const STATUS_COLOR: Record<CaseStatus, string> = {
-  intake: 'bg-gray-100 text-gray-700',
-  processing: 'bg-blue-100 text-blue-700',
-  review: 'bg-yellow-100 text-yellow-700',
-  complete: 'bg-green-100 text-green-700',
+  intake: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  processing: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  review: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+  complete: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
 };
 
 const EXTRACTION_COLOR: Record<string, string> = {
-  pending: 'bg-gray-100 text-gray-600',
-  processing: 'bg-blue-100 text-blue-600',
-  complete: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-600',
+  pending: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  processing: 'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300',
+  complete: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
+  failed: 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-300',
 };
 
 const EVENT_FILTERS: { label: string; value: string }[] = [
@@ -138,8 +138,8 @@ export default function CaseDetailPage() {
     }
   }
 
-  if (loading) return <div className="text-sm text-gray-400 py-8 text-center">Loading…</div>;
-  if (error) return <div className="text-red-600 text-sm py-8">{error}</div>;
+  if (loading) return <div className="text-sm text-gray-400 py-8 text-center dark:text-gray-500">Loading…</div>;
+  if (error) return <div className="text-red-600 text-sm py-8 dark:text-red-400">{error}</div>;
   if (!caseData) return null;
 
   const canSignOff = user?.role === 'attorney' || user?.role === 'admin';
@@ -151,17 +151,17 @@ export default function CaseDetailPage() {
   return (
     <div>
       {/* Case header */}
-      <div className="mb-6 pb-4 border-b border-gray-200">
+      <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-xl font-semibold text-gray-900">{caseData.claimant_name}</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-50">{caseData.claimant_name}</h2>
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[caseData.status]}`}>
                 {STATUS_LABEL[caseData.status]}
               </span>
             </div>
-            {caseData.firm && <p className="text-sm text-gray-500">{caseData.firm}</p>}
-            <p className="text-sm text-gray-400 mt-1">
+            {caseData.firm && <p className="text-sm text-gray-500 dark:text-gray-400">{caseData.firm}</p>}
+            <p className="text-sm text-gray-400 mt-1 dark:text-gray-500">
               {events.length} events &nbsp;·&nbsp; {verifiedCount}/{events.length} verified
               {isComplete && caseData.reviewed_by && (
                 <> &nbsp;·&nbsp; Signed off by {caseData.reviewed_by}</>
@@ -176,7 +176,7 @@ export default function CaseDetailPage() {
                   onClick={handleSignOff}
                   disabled={!allVerified || signingOff}
                   title={!allVerified ? 'All events must be verified before sign-off' : undefined}
-                  className="bg-green-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="bg-green-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors dark:hover:bg-green-500"
                 >
                   {signingOff ? 'Signing off…' : 'Sign Off Case'}
                 </button>
@@ -185,16 +185,16 @@ export default function CaseDetailPage() {
                 href={api.cases.exportPdfUrl(caseId)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-white border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded hover:bg-gray-50 transition-colors"
+                className="bg-white border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded hover:bg-gray-50 transition-colors dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 Export PDF
               </a>
             </div>
             {signOffError && (
-              <p className="text-xs text-red-600 max-w-xs text-right">{signOffError}</p>
+              <p className="text-xs text-red-600 max-w-xs text-right dark:text-red-400">{signOffError}</p>
             )}
             {!canSignOff && !isComplete && (
-              <p className="text-xs text-gray-400">Sign-off requires attorney or admin role</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Sign-off requires attorney or admin role</p>
             )}
           </div>
         </div>
@@ -202,18 +202,18 @@ export default function CaseDetailPage() {
 
       {/* Documents panel */}
       <section className="mb-8">
-        <h3 className="text-base font-semibold text-gray-800 mb-3">Documents</h3>
+        <h3 className="text-base font-semibold text-gray-800 mb-3 dark:text-gray-200">Documents</h3>
         {documents.length > 0 && (
           <ul className="space-y-2 mb-4">
             {documents.map((doc) => (
-              <li key={doc.id} className="flex items-center justify-between bg-white border border-gray-200 rounded px-4 py-2 text-sm">
-                <span className="text-gray-800 truncate flex-1 mr-4">
+              <li key={doc.id} className="flex items-center justify-between bg-white border border-gray-200 rounded px-4 py-2 text-sm dark:bg-gray-900 dark:border-gray-800">
+                <span className="text-gray-800 truncate flex-1 mr-4 dark:text-gray-200">
                   {doc.file ? (
                     <a
                       href={doc.file}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
+                      className="text-blue-600 hover:underline dark:text-blue-400"
                     >
                       {doc.filename}
                     </a>
@@ -239,7 +239,7 @@ export default function CaseDetailPage() {
       {/* Timeline panel */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-gray-800">Timeline</h3>
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">Timeline</h3>
         </div>
 
         {/* Filter chips */}
@@ -255,7 +255,7 @@ export default function CaseDetailPage() {
                   'px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                   isActive
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50',
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-800',
                 ].join(' ')}
               >
                 {opt.label}
