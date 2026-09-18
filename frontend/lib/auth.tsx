@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api'}/auth/me/`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api'}/auth/me/`, {
       headers: { Authorization: `Token ${stored}` },
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api'}/auth/login/`,
+      `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api'}/auth/login/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = getStoredToken();
     if (stored) {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api'}/auth/logout/`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api'}/auth/logout/`,
         { method: 'POST', headers: { Authorization: `Token ${stored}` } },
       ).catch(() => {});
     }

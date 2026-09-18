@@ -110,7 +110,7 @@ CELERY_TASK_TRACK_STARTED = True
 
 CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
-    default=['http://localhost:3000'],
+    default=['http://localhost:3000', 'http://localhost:8000', 'http://localhost:8095'],
 )
 
 # Feature flags — all default to False so the project runs with zero external

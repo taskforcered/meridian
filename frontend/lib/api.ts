@@ -1,7 +1,7 @@
 import type { AuthUser, Case, SourceDocument, TimelineEvent } from './types';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api';
 
 const TOKEN_KEY = 'meridian_token';
 

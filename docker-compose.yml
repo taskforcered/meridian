@@ -1,8 +1,7 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: meridian-db
     environment:
       POSTGRES_DB: meridian
       POSTGRES_USER: meridian
@@ -19,6 +18,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: meridian-redis
     ports:
       - "6379:6379"
     volumes:
@@ -31,6 +31,7 @@ services:
 
   backend:
     build: ./backend
+    container_name: meridian-backend
     environment:
       DATABASE_URL: postgres://meridian:meridian@postgres:5432/meridian
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -38,7 +39,7 @@ services:
     env_file:
       - ./backend/.env
     ports:
-      - "8000:8000"
+      - "8095:8000"
     volumes:
       - ./backend:/app
     depends_on:
@@ -50,6 +51,7 @@ services:
   celery-worker:
     build: ./backend
     command: celery -A meridian worker -l info
+    container_name: meridian-worker
     environment:
       DATABASE_URL: postgres://meridian:meridian@postgres:5432/meridian
       CELERY_BROKER_URL: redis://redis:6379/0
