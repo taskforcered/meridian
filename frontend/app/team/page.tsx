@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useTenant } from '@/lib/tenant';
 import { api } from '@/lib/api';
+import { ROLE_OPTIONS } from '@/lib/types';
 import type { Member, Role } from '@/lib/types';
-
-const ROLE_OPTIONS: Role[] = ['paralegal', 'attorney', 'admin'];
 
 export default function TeamPage() {
   const { user, loading: authLoading } = useAuth();

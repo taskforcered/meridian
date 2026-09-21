@@ -7,6 +7,7 @@ export type FlagType =
 export type CaseStatus = 'intake' | 'processing' | 'review' | 'complete';
 export type ExtractionStatus = 'pending' | 'processing' | 'complete' | 'failed';
 export type Role = 'paralegal' | 'attorney' | 'admin';
+export const ROLE_OPTIONS: Role[] = ['paralegal', 'attorney', 'admin'];
 
 export interface OrgRef {
   id: number;
@@ -50,6 +51,42 @@ export interface Member {
   role: Role;
   is_active: boolean;
   is_default: boolean;
+}
+
+// Cross-org — a platform admin's view of one (user, organization) membership,
+// as opposed to Member above which is scoped to a single entered tenant.
+export interface AdminMembership {
+  id: number;
+  organization: Organization;
+  role: Role;
+  is_active: boolean;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  is_active: boolean;
+  is_platform_admin: boolean;
+  date_joined: string;
+  memberships: AdminMembership[];
+}
+
+// Feature-flag overrides are nullable: null means "inherit the env default"
+// (see env_defaults, returned alongside on GET).
+export interface PlatformSettings {
+  use_real_ocr: boolean | null;
+  use_real_llm: boolean | null;
+  use_local_ocr: boolean | null;
+  use_anthropic_llm: boolean | null;
+  default_new_org_active: boolean;
+  default_new_member_role: Role;
+  updated_at: string;
+  env_defaults: {
+    use_real_ocr: boolean;
+    use_real_llm: boolean;
+    use_local_ocr: boolean;
+    use_anthropic_llm: boolean;
+  };
 }
 
 export interface Case {

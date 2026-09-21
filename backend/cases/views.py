@@ -3,6 +3,7 @@ import operator
 import os
 import zipfile
 
+from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.http import HttpResponse
@@ -13,14 +14,17 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import Case, Organization, Profile, SourceDocument, TimelineEvent
+from .models import Case, Organization, PlatformSettings, Profile, SourceDocument, TimelineEvent
 from .permissions import IsAttorneyOrAdmin, IsOrgAdmin, IsPlatformAdmin, IsTenantMember
 from .serializers import (
+    AdminUserSerializer,
     CaseListSerializer,
     CaseSerializer,
     MemberSerializer,
     OrganizationSerializer,
+    PlatformSettingsSerializer,
     SourceDocumentSerializer,
     TimelineEventSerializer,
 )
@@ -201,6 +205,86 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
     permission_classes = [IsPlatformAdmin]
+
+    def perform_create(self, serializer):
+        if 'is_active' in self.request.data:
+            serializer.save()
+        else:
+            serializer.save(is_active=PlatformSettings.load().default_new_org_active)
+
+
+class AdminUserViewSet(viewsets.ReadOnlyModelViewSet):
+    """Platform-wide user directory — cross-org, unlike MembershipViewSet
+    which is hard-scoped to request.tenant. Mutations are limited to a few
+    account-wide actions; per-org role/membership changes stay on the
+    tenant-scoped /members/ endpoint (via the Team page after entering that org)."""
+
+    queryset = User.objects.all().prefetch_related('memberships__organization').order_by('username')
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsPlatformAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        q = self.request.query_params.get('q')
+        return qs.filter(username__icontains=q) if q else qs
+
+    @action(detail=True, methods=['post'])
+    def promote(self, request, pk=None):
+        user = self.get_object()
+        user.is_superuser = True
+        user.is_staff = True
+        user.save(update_fields=['is_superuser', 'is_staff'])
+        return Response(AdminUserSerializer(user).data)
+
+    @action(detail=True, methods=['post'])
+    def demote(self, request, pk=None):
+        user = self.get_object()
+        if user.id == request.user.id:
+            return Response({'detail': "Can't revoke your own platform-admin access."}, status=400)
+        user.is_superuser = False
+        user.is_staff = False
+        user.save(update_fields=['is_superuser', 'is_staff'])
+        return Response(AdminUserSerializer(user).data)
+
+    @action(detail=True, methods=['post'])
+    def deactivate(self, request, pk=None):
+        user = self.get_object()
+        if user.id == request.user.id:
+            return Response({'detail': "Can't deactivate your own account."}, status=400)
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        return Response(AdminUserSerializer(user).data)
+
+    @action(detail=True, methods=['post'])
+    def reactivate(self, request, pk=None):
+        user = self.get_object()
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        return Response(AdminUserSerializer(user).data)
+
+
+class PlatformSettingsView(APIView):
+    """Singleton resource — same shape as MeView in auth_views.py."""
+
+    permission_classes = [IsPlatformAdmin]
+
+    def get(self, request):
+        from django.conf import settings as django_settings
+        data = PlatformSettingsSerializer(PlatformSettings.load()).data
+        data['env_defaults'] = {
+            'use_real_ocr': django_settings.USE_REAL_OCR,
+            'use_real_llm': django_settings.USE_REAL_LLM,
+            'use_local_ocr': django_settings.USE_LOCAL_OCR,
+            'use_anthropic_llm': django_settings.USE_ANTHROPIC_LLM,
+        }
+        return Response(data)
+
+    def patch(self, request):
+        obj = PlatformSettings.load()
+        serializer = PlatformSettingsSerializer(obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class MembershipViewSet(TenantScopedMixin, viewsets.ModelViewSet):

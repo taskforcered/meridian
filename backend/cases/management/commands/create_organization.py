@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 
-from cases.models import Organization, Profile
+from cases.models import Organization, PlatformSettings, Profile
 
 
 class Command(BaseCommand):
@@ -19,7 +19,11 @@ class Command(BaseCommand):
             raise CommandError('slug must be alphanumeric (hyphens allowed).')
 
         org, org_created = Organization.objects.get_or_create(
-            slug=slug, defaults={'name': options['name']},
+            slug=slug,
+            defaults={
+                'name': options['name'],
+                'is_active': PlatformSettings.load().default_new_org_active,
+            },
         )
         if not org_created:
             self.stdout.write(self.style.WARNING(f"Organization '{org.slug}' already exists — reusing it."))

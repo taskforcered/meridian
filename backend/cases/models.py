@@ -58,6 +58,33 @@ class Profile(models.Model):
         return f'{self.user.username} ({self.role} @ {self.organization.name})'
 
 
+class PlatformSettings(models.Model):
+    """Singleton row (pk=1) of platform-wide admin settings. Use .load()
+    rather than querying directly."""
+
+    # None = fall back to the env-var setting (see cases/feature_flags.py).
+    # Only an explicit True/False here overrides it at runtime, no redeploy needed.
+    use_real_ocr = models.BooleanField(null=True, blank=True, default=None)
+    use_real_llm = models.BooleanField(null=True, blank=True, default=None)
+    use_local_ocr = models.BooleanField(null=True, blank=True, default=None)
+    use_anthropic_llm = models.BooleanField(null=True, blank=True, default=None)
+
+    default_new_org_active = models.BooleanField(default=True)
+    default_new_member_role = models.CharField(
+        max_length=20, choices=Profile.ROLE_CHOICES, default=Profile.ROLE_PARALEGAL,
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return 'Platform settings'
+
+
 class Case(models.Model):
     STATUS_INTAKE = 'intake'
     STATUS_PROCESSING = 'processing'

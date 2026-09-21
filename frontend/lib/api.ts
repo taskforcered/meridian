@@ -1,5 +1,14 @@
 import { getStoredTenantSlug } from './tenant';
-import type { AuthUser, Case, Member, Organization, SourceDocument, TimelineEvent } from './types';
+import type {
+  AdminUser,
+  AuthUser,
+  Case,
+  Member,
+  Organization,
+  PlatformSettings,
+  SourceDocument,
+  TimelineEvent,
+} from './types';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8095/api';
@@ -113,6 +122,8 @@ export const api = {
     list: () => apiFetch<PaginatedResponse<Organization>>('/admin/organizations/'),
     create: (data: { name: string; slug: string }) =>
       apiFetch<Organization>('/admin/organizations/', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<Pick<Organization, 'name' | 'slug' | 'is_active'>>) =>
+      apiFetch<Organization>(`/admin/organizations/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
 
   // Org Admin (own org) or a Global Admin who has entered a tenant.
@@ -124,5 +135,23 @@ export const api = {
       apiFetch<Member>(`/members/${id}/`, { method: 'PATCH', body: JSON.stringify({ role }) }),
     deactivate: (id: number) => apiFetch<Member>(`/members/${id}/deactivate/`, { method: 'POST' }),
     reactivate: (id: number) => apiFetch<Member>(`/members/${id}/reactivate/`, { method: 'POST' }),
+  },
+
+  // Global Admin only — cross-org user directory (unlike `members`, which is
+  // scoped to whichever single tenant has been entered).
+  adminUsers: {
+    list: (q?: string) =>
+      apiFetch<PaginatedResponse<AdminUser>>(`/admin/users/${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+    promote: (id: number) => apiFetch<AdminUser>(`/admin/users/${id}/promote/`, { method: 'POST' }),
+    demote: (id: number) => apiFetch<AdminUser>(`/admin/users/${id}/demote/`, { method: 'POST' }),
+    deactivate: (id: number) => apiFetch<AdminUser>(`/admin/users/${id}/deactivate/`, { method: 'POST' }),
+    reactivate: (id: number) => apiFetch<AdminUser>(`/admin/users/${id}/reactivate/`, { method: 'POST' }),
+  },
+
+  // Global Admin only — platform-wide feature flags and org-creation defaults.
+  platformSettings: {
+    get: () => apiFetch<PlatformSettings>('/admin/settings/'),
+    update: (data: Partial<PlatformSettings>) =>
+      apiFetch<PlatformSettings>('/admin/settings/', { method: 'PATCH', body: JSON.stringify(data) }),
   },
 };

@@ -213,12 +213,13 @@ class BedrockClaudeService:
 
 def get_llm_service() -> LLMService:
     from django.conf import settings
-    if getattr(settings, 'USE_REAL_LLM', False):
+    from cases.feature_flags import is_enabled
+    if is_enabled('USE_REAL_LLM'):
         return BedrockClaudeService(
             model_id=settings.BEDROCK_MODEL_ID,
             region=getattr(settings, 'AWS_REGION_NAME', 'us-east-1'),
         )
-    if getattr(settings, 'USE_ANTHROPIC_LLM', False):
+    if is_enabled('USE_ANTHROPIC_LLM'):
         return AnthropicLLMService(
             api_key=settings.ANTHROPIC_API_KEY,
             model=getattr(settings, 'ANTHROPIC_MODEL', 'claude-opus-5'),

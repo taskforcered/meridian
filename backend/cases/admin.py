@@ -1,6 +1,6 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
-from .models import Case, Organization, Profile, SourceDocument, TimelineEvent
+from .models import Case, Organization, PlatformSettings, Profile, SourceDocument, TimelineEvent
 
 
 @admin.register(Organization)
@@ -39,3 +39,15 @@ class TimelineEventAdmin(SimpleHistoryAdmin):
     list_display = ('id', 'event_date', 'provider_name', 'case', 'flags')
     list_filter = ('event_date',)
     search_fields = ('provider_name', 'description', 'case__claimant_name')
+
+
+@admin.register(PlatformSettings)
+class PlatformSettingsAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'default_new_org_active', 'default_new_member_role', 'updated_at')
+    readonly_fields = ('updated_at',)
+
+    def has_add_permission(self, request):
+        return not PlatformSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

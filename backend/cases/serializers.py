@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Case, Organization, Profile, SourceDocument, TimelineEvent
+from .middleware import RESERVED_SLUGS
+from .models import Case, Organization, PlatformSettings, Profile, SourceDocument, TimelineEvent
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -8,6 +9,14 @@ class OrganizationSerializer(serializers.ModelSerializer):
         model = Organization
         fields = ('id', 'name', 'slug', 'is_active', 'created_at')
         read_only_fields = ('created_at',)
+
+    def validate_slug(self, value):
+        slug = value.strip().lower()
+        if not slug.replace('-', '').isalnum():
+            raise serializers.ValidationError('Slug must be alphanumeric (hyphens allowed).')
+        if slug in RESERVED_SLUGS:
+            raise serializers.ValidationError(f'"{slug}" is reserved.')
+        return slug
 
 
 class MemberSerializer(serializers.ModelSerializer):
@@ -23,6 +32,10 @@ class MemberSerializer(serializers.ModelSerializer):
 
     email = serializers.EmailField(source='user.username')
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
+    # Declared explicitly (not left to the model-field default) so an omitted
+    # role falls through to PlatformSettings.default_new_member_role in
+    # create() below, instead of DRF silently filling in the model default.
+    role = serializers.ChoiceField(choices=Profile.ROLE_CHOICES, required=False)
 
     class Meta:
         model = Profile
@@ -32,7 +45,7 @@ class MemberSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email = validated_data['user']['username'].strip().lower()
         password = validated_data.pop('password', None)
-        role = validated_data.get('role', Profile.ROLE_PARALEGAL)
+        role = validated_data.get('role') or PlatformSettings.load().default_new_member_role
         organization = self.context['organization']
 
         user, user_created = User.objects.get_or_create(
@@ -57,6 +70,39 @@ class MemberSerializer(serializers.ModelSerializer):
         instance.role = validated_data.get('role', instance.role)
         instance.save()
         return instance
+
+
+class AdminMembershipSerializer(serializers.ModelSerializer):
+    organization = OrganizationSerializer(read_only=True)
+
+    class Meta:
+        model = Profile
+        fields = ('id', 'organization', 'role', 'is_active')
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Read-only, platform-wide view of a User and every org they belong to.
+    Mutations go through AdminUserViewSet's promote/demote/deactivate/
+    reactivate actions rather than a generic update, so this never accepts input.
+    """
+
+    email = serializers.CharField(source='username', read_only=True)
+    is_platform_admin = serializers.BooleanField(source='is_superuser', read_only=True)
+    memberships = AdminMembershipSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'is_active', 'is_platform_admin', 'date_joined', 'memberships')
+
+
+class PlatformSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlatformSettings
+        fields = (
+            'use_real_ocr', 'use_real_llm', 'use_local_ocr', 'use_anthropic_llm',
+            'default_new_org_active', 'default_new_member_role', 'updated_at',
+        )
+        read_only_fields = ('updated_at',)
 
 
 class SourceDocumentSerializer(serializers.ModelSerializer):

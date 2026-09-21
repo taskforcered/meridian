@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useTenant } from '@/lib/tenant';
 import { api } from '@/lib/api';
 import type { Organization } from '@/lib/types';
 
 export default function OrganizationsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { enterTenant } = useTenant();
-  const router = useRouter();
 
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,12 +16,8 @@ export default function OrganizationsPage() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [creating, setCreating] = useState(false);
-
-  useEffect(() => {
-    if (!authLoading && (!user || !user.is_platform_admin)) {
-      router.replace('/cases');
-    }
-  }, [authLoading, user, router]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
 
   function refresh() {
     setLoading(true);
@@ -53,12 +47,36 @@ export default function OrganizationsPage() {
     }
   }
 
+  function startEdit(org: Organization) {
+    setEditingId(org.id);
+    setEditName(org.name);
+  }
+
+  async function handleSaveName(id: number) {
+    setError('');
+    try {
+      await api.organizations.update(id, { name: editName });
+      setEditingId(null);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update organization');
+    }
+  }
+
+  async function handleToggleActive(org: Organization) {
+    setError('');
+    try {
+      await api.organizations.update(org.id, { is_active: !org.is_active });
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update organization');
+    }
+  }
+
   function handleEnter(orgSlug: string) {
     enterTenant(orgSlug);
     window.location.href = '/cases';
   }
-
-  if (authLoading || !user?.is_platform_admin) return null;
 
   return (
     <div>
@@ -122,7 +140,34 @@ export default function OrganizationsPage() {
           <tbody>
             {orgs.map((o) => (
               <tr key={o.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:hover:bg-gray-900">
-                <td className="py-3 pr-4 font-medium text-gray-900 dark:text-gray-100">{o.name}</td>
+                <td className="py-3 pr-4 font-medium text-gray-900 dark:text-gray-100">
+                  {editingId === o.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        autoFocus
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-950 dark:border-gray-700 dark:text-gray-100"
+                      />
+                      <button
+                        onClick={() => handleSaveName(o.id)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => startEdit(o)} className="hover:underline text-left">
+                      {o.name}
+                    </button>
+                  )}
+                </td>
                 <td className="py-3 pr-4 text-gray-500 font-mono text-xs dark:text-gray-400">{o.slug}</td>
                 <td className="py-3 pr-4">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${o.is_active ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
@@ -132,7 +177,13 @@ export default function OrganizationsPage() {
                 <td className="py-3 text-gray-500 whitespace-nowrap dark:text-gray-500">
                   {new Date(o.created_at).toLocaleDateString()}
                 </td>
-                <td className="py-3 text-right">
+                <td className="py-3 text-right whitespace-nowrap">
+                  <button
+                    onClick={() => handleToggleActive(o)}
+                    className="text-xs font-medium text-gray-600 border border-gray-300 rounded px-3 py-1 hover:bg-gray-50 mr-2 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-800"
+                  >
+                    {o.is_active ? 'Deactivate' : 'Reactivate'}
+                  </button>
                   <button
                     onClick={() => handleEnter(o.slug)}
                     className="text-xs font-medium text-amber-700 border border-amber-300 rounded px-3 py-1 hover:bg-amber-50 dark:text-amber-300 dark:border-amber-800 dark:hover:bg-amber-950"

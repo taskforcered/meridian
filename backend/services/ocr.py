@@ -170,11 +170,12 @@ class TextractOCRService:
 
 def get_ocr_service() -> OCRService:
     from django.conf import settings
-    if getattr(settings, 'USE_REAL_OCR', False):
+    from cases.feature_flags import is_enabled
+    if is_enabled('USE_REAL_OCR'):
         return TextractOCRService(
             s3_bucket=settings.AWS_S3_BUCKET,
             region=getattr(settings, 'AWS_REGION_NAME', 'us-east-1'),
         )
-    if getattr(settings, 'USE_LOCAL_OCR', False):
+    if is_enabled('USE_LOCAL_OCR'):
         return LocalOCRService()
     return MockOCRService()
